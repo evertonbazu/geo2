@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Jogo Geoggráfico dos Prof. Everton e Edilaine</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    #score-display {
+      text-align: center;
+      margin: 10px 0;
+      font-weight: bold;
+      color: #27ae60;
+      font-size: 1.2em;
+    }
+    .question-container {
+      max-width: 700px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .question {
+      font-weight: bold;
+      margin-bottom: 15px;
+      font-size: 1.1em;
+      color: #2c3e50;
+    }
+    .answers button {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 12px;
+      border: 2px solid #3498db;
+      border-radius: 8px;
+      background: #f8f9fa;
+      color: #2c3e50;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 1em;
+    }
+    .answers button:hover {
+      background: #3498db;
+      color: white;
+    }
+    .answers button:disabled {
+      background: #ecf0f1;
+      color: #bdc3c7;
+      border-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+    .feedback {
+      margin: 15px 0;
+      padding: 10px;
+      border-radius: 5px;
+      font-style: italic;
+      font-size: 0.9em;
+    }
+    .navigation-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .nav-btn {
+      padding: 10px 25px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: opacity 0.3s;
+    }
+    #prev-btn {
+      background: #e67e22;
+      color: white;
+    }
+    #next-btn {
+      background: #2ecc71;
+      color: white;
+    }
+    #restart-btn {
+      background: #3498db;
+      color: white;
+      margin: 20px auto;
+      display: block;
+    }
+    #finalizar-btn {
+      background: #8e44ad;
+      color: white;
+    }
+    .nav-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .progress-bar {
+      width: 80%;
+      height: 20px;
+      background: #ecf0f1;
+      border-radius: 10px;
+      margin: 20px auto;
+      overflow: hidden;
+    }
+    .progress {
+      height: 100%;
+      background: #2ecc71;
+      transition: width 0.5s ease;
+    }
+    .result-text {
+      font-size: 1.2em;
+      color: #2c3e50;
+      margin: 15px 0;
+      text-align: center;
+    }
+    .encouragement {
+      font-size: 1.1em;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Jogo Geográfico dos Prof. Everton e Edilaine</h1>
+  <div id="score-display">Pontuação: 0/10</div>
+  <div class="question-container" id="game-container">
+    <div class="question" id="question"></div>
+    <div class="answers" id="answers"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="navigation-buttons">
+      <button id="prev-btn" class="nav-btn" disabled>← Anterior</button>
+      <button id="next-btn" class="nav-btn">Próximo →</button>
+      <!-- O botão Finalizar será inserido via JS -->
+    </div>
+  </div>
+
+  <!-- Arquivo externo com as questões -->
+  <script src="questions.js"></script>
+
+  <script>
+    let roundQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let userAnswers = [];
+    let shuffledOptionsPerQuestion = [];
+
+    function updateScoreDisplay() {
+      document.getElementById("score-display").textContent = `Pontuação: ${score}/${roundQuestions.length}`;
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // Embaralha as opções e retorna {options, correct}
+    function shuffleOptions(question) {
+      const options = question.options.map((opt, idx) => ({
+        text: opt,
+        isCorrect: idx === question.correct
+      }));
+      shuffle(options);
+      return {
+        options: options.map(opt => opt.text),
+        correct: options.findIndex(opt => opt.isCorrect)
+      };
+    }
+
+    function startGame() {
+      const container = document.getElementById("game-container");
+      container.innerHTML = `
+        <div class="question" id="question"></div>
+        <div class="answers" id="answers"></div>
+        <div class="feedback" id="feedback"></div>
+        <div class="navigation-buttons">
+          <button id="prev-btn" class="nav-btn">← Anterior</button>
+          <button id="next-btn" class="nav-btn">Próximo →</button>
+        </div>
+      `;
+
+      document.getElementById("prev-btn").addEventListener("click", prevQuestion);
+      document.getElementById("next-btn").addEventListener("click", nextQuestion);
+
+      roundQuestions = shuffle([...questions]).slice(0, 10);
+      currentQuestionIndex = 0;
+      score = 0;
+      userAnswers = new Array(roundQuestions.length).fill(null);
+
+      // Embaralha as opções de cada questão uma única vez por rodada
+      shuffledOptionsPerQuestion = roundQuestions.map(q => shuffleOptions(q));
+
+      updateScoreDisplay();
+      loadQuestion();
+    }
+
+    function loadQuestion() {
+      const questionObj = roundQuestions[currentQuestionIndex];
+      const shuffled = shuffledOptionsPerQuestion[currentQuestionIndex];
+
+      document.getElementById("question").textContent = `Q${currentQuestionIndex + 1}: ${questionObj.q}`;
+      document.getElementById("prev-btn").disabled = currentQuestionIndex === 0;
+      document.getElementById("next-btn").style.display = (currentQuestionIndex === roundQuestions.length - 1) ? "none" : "inline-block";
+
+      const answersDiv = document.getElementById("answers");
+      answersDiv.innerHTML = "";
+
+      shuffled.options.forEach((option, index) => {
+        const btn = document.createElement("button");
+        btn.textContent = option;
+        btn.disabled = userAnswers[currentQuestionIndex] !== null;
+        btn.addEventListener("click", () => checkAnswer(index));
+        answersDiv.appendChild(btn);
+      });
+
+      // Adiciona o botão Finalizar apenas na última questão
+      const navDiv = document.querySelector(".navigation-buttons");
+      let finalizarBtn = document.getElementById("finalizar-btn");
+      if (currentQuestionIndex === roundQuestions.length - 1) {
+        if (!finalizarBtn) {
+          finalizarBtn = document.createElement("button");
+          finalizarBtn.id = "finalizar-btn";
+          finalizarBtn.className = "nav-btn";
+          finalizarBtn.textContent = "Finalizar";
+          finalizarBtn.onclick = showResult;
+          navDiv.appendChild(finalizarBtn);
+        }
+        finalizarBtn.style.display = "inline-block";
+      } else if (finalizarBtn) {
+        finalizarBtn.style.display = "none";
+      }
+
+      if (userAnswers[currentQuestionIndex] !== null) {
+        showQuestionFeedback();
+      } else {
+        document.getElementById("feedback").textContent = "";
+      }
+    }
+
+    function checkAnswer(selected) {
+      const shuffled = shuffledOptionsPerQuestion[currentQuestionIndex];
+      // Só conta ponto se ainda não respondeu
+      if (userAnswers[currentQuestionIndex] === null && selected === shuffled.correct) {
+        score++;
+        updateScoreDisplay();
+      }
+      userAnswers[currentQuestionIndex] = selected;
+
+      document.querySelectorAll(".answers button").forEach(btn => btn.disabled = true);
+      showQuestionFeedback();
+    }
+
+    function showQuestionFeedback() {
+      const questionObj = roundQuestions[currentQuestionIndex];
+      const shuffled = shuffledOptionsPerQuestion[currentQuestionIndex];
+      const feedbackDiv = document.getElementById("feedback");
+      const selected = userAnswers[currentQuestionIndex];
+
+      if (selected === shuffled.correct) {
+        feedbackDiv.innerHTML = "✅ Resposta Correta!";
+        feedbackDiv.style.color = "#27ae60";
+      } else {
+        feedbackDiv.innerHTML = `❌ ${questionObj.feedback}`;
+        feedbackDiv.style.color = "#e74c3c";
+      }
+    }
+
+    function prevQuestion() {
+      if (currentQuestionIndex > 0) {
+        currentQuestionIndex--;
+        loadQuestion();
+      }
+    }
+
+    function nextQuestion() {
+      if (currentQuestionIndex < roundQuestions.length - 1) {
+        currentQuestionIndex++;
+        loadQuestion();
+      }
+      // Não mostra resultado aqui, só no botão Finalizar
+    }
+
+    function showResult() {
+      const container = document.getElementById("game-container");
+      const percentage = Math.round((score / roundQuestions.length) * 100);
+
+      container.innerHTML = `
+        <h2>🏆 Resultado Final</h2>
+        <div class="progress-bar">
+          <div class="progress" style="width: ${percentage}%"></div>
+        </div>
+        <p class="result-text">Você acertou ${score} de ${roundQuestions.length} questões</p>
+        <p class="encouragement">${getEncouragement(percentage)}</p>
+        <button id="restart-btn" class="nav-btn">Jogar Novamente</button>
+      `;
+
+      document.getElementById("restart-btn").addEventListener("click", startGame);
+    }
+
+    function getEncouragement(percentage) {
+      if (percentage === 100) return "🎉 Perfeito! Domínio total! Você é um mestre da História!";
+      if (percentage >= 90) return "🌟 Excelente! Quase perfeito! Continue assim!";
+      if (percentage >= 75) return "✅ Muito bom! Você está no caminho certo!";
+      if (percentage >= 50) return "📚 Bom esforço! Revise mais um pouco e você vai melhorar!";
+      return "💪 Não desista! Cada erro é uma chance de aprender!";
+    }
+
+    window.addEventListener('DOMContentLoaded', startGame);
+  </script>
+</body>
+</html>
